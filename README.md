@@ -21,11 +21,11 @@ Kompatibel mit allen Chromium-Browsern (Chrome, Opera GX, Edge, Brave, etc.).
 
 | Dashboard & Stats | Turbo-Garten |
 | :---: | :---: |
-| ![Screenshot 1]((https://i.imgur.com/p9TKK7B.png)) | ![Screenshot 2](https://i.imgur.com/wHpuH8B.png) |
+| ![Screenshot 1](https://i.imgur.com/p9TKK7B.png) | ![Screenshot 2](https://i.imgur.com/wHpuH8B.png) |
 
 | Investment Banker | Wimp Analyse |
 | :---: | :---: |
-| ![Screenshot 3]((https://i.imgur.com/Ej0abkS.png)) | ![Screenshot 4](https://i.imgur.com/7xWxLah.png) |
+| ![Screenshot 3](https://i.imgur.com/Ej0abkS.png) | ![Screenshot 4](https://i.imgur.com/7xWxLah.png) |
 
 ---
 
