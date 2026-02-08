@@ -1,44 +1,62 @@
 document.addEventListener('DOMContentLoaded', () => {
     
-
     const sendAction = (action, data = {}) => {
         chrome.tabs.query({active: true, currentWindow: true}, (tabs) => {
             if (tabs[0]) chrome.tabs.sendMessage(tabs[0].id, {action: action, ...data});
         });
     };
 
-
+    
     const refreshUI = () => {
-        chrome.storage.local.get(['stats', 'regalSlots', 'marketPrices'], (res) => {
-            // Stats
+        chrome.storage.local.get(['stats', 'shelfData', 'marketPrices'], (res) => {
+            
             if (res.stats) {
                 document.getElementById('pkt').innerText = res.stats.pkt;
                 document.getElementById('lvl').innerText = res.stats.lvl;
                 document.getElementById('bar').innerText = res.stats.bar;
             }
 
-            // Regal Dropdown
+            
             const select = document.getElementById('selSlot');
-            if (res.regalSlots && res.regalSlots.length > 0) {
- 
-                if (select.options.length <= 1) {
-                    select.innerHTML = "";
-                    res.regalSlots.forEach(id => {
+            
+            if (res.shelfData && res.shelfData.length > 0) {
+                
+                
+                
+                
+                const currentCount = select.options.length;
+                const newCount = res.shelfData.length;
+                const hasPlaceholder = select.value.includes("Bitte") || select.value.includes("Warte") || select.value.includes("Lade");
+
+                if (hasPlaceholder || currentCount !== newCount) {
+                    
+                    const oldValue = select.value; 
+                    select.innerHTML = ""; 
+                    
+                    res.shelfData.forEach(item => {
                         let opt = document.createElement('option');
-                        opt.value = "regal_" + id;
-                        opt.innerHTML = "Slot " + id;
+                        opt.value = "regal_" + item.id;
+                        opt.innerHTML = `${item.name} (Slot ${item.id})`;
                         select.appendChild(opt);
                     });
 
-
-                    if (select.options.length > 0) {
+                    
+                    if (oldValue && !oldValue.includes("regal")) {
+                        select.value = oldValue;
+                    } else if (select.options.length > 0) {
                         select.selectedIndex = 0;
-                        sendAction("highlight", {slot: select.value});
+                        
+                        if (hasPlaceholder) sendAction("highlight", {slot: select.value});
                     }
+                }
+            } else {
+                
+                if(!select.value.includes("Bitte")) {
+                     select.innerHTML = "<option>Bitte Regal einlesen!</option>";
                 }
             }
 
-            // Tabs Sperren/Entsperren
+            
             const hasMarketData = res.marketPrices && Object.keys(res.marketPrices).length > 0;
             document.querySelectorAll('.needs-scan').forEach(tab => {
                 const overlay = tab.querySelector('.scan-overlay');
@@ -52,7 +70,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
 
-            // Markt Liste
+            
             if (document.getElementById('tab-markt').classList.contains('active') && hasMarketData) {
                 const list = document.getElementById('marketList');
                 if(list.children.length <= 1) {
@@ -70,10 +88,13 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     };
 
+    
     setInterval(refreshUI, 1000);
     refreshUI();
 
-    // --- TABS & EVENTS ---
+    
+    
+    
     const tabs = document.querySelectorAll('.tab');
     const contents = document.querySelectorAll('.content');
     tabs.forEach(tab => {
@@ -87,6 +108,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
+    
     document.getElementById('btnErnten').addEventListener('click', () => sendAction("ernten"));
     document.getElementById('btnGiessen').addEventListener('click', () => sendAction("giessen"));
     document.getElementById('btnSaen').addEventListener('click', () => {
@@ -94,18 +116,23 @@ document.addEventListener('DOMContentLoaded', () => {
         if(slot && slot.startsWith('regal')) sendAction("saen", {slot: slot});
     });
     
-
     document.getElementById('selSlot').addEventListener('change', (e) => sendAction("highlight", {slot: e.target.value}));
+
+    
+    document.getElementById('btnScanShelf').addEventListener('click', () => {
+        document.getElementById('shelfStatus').innerText = "Initialisiere...";
+        
+        
+        
+        document.getElementById('selSlot').innerHTML = "<option>Lade Daten...</option>";
+        
+        sendAction("scanShelf");
+    });
 
     document.getElementById('btnDeepScan').addEventListener('click', () => {
         document.getElementById('marketStatus').innerText = "Starte Komplett-Scan...";
         document.getElementById('scanProgress').style.width = "0%";
         sendAction("deepScanMarket");
-    });
-
-    document.getElementById('btnScanRegalTimes').addEventListener('click', () => {
-        document.getElementById('regalStatus').innerText = "Lese Zeiten aus...";
-        sendAction("scanRegalTimes");
     });
     
     document.getElementById('btnCalcBanker').addEventListener('click', () => sendAction("calcBanker"));
@@ -121,19 +148,28 @@ document.addEventListener('DOMContentLoaded', () => {
         if(confirm("Nur profitable (grüne) Angebote verkaufen?")) sendAction("sellWimps");
     });
 
-    // Messages
+    
     chrome.runtime.onMessage.addListener((msg) => {
         if (msg.action === "marketStatus") {
             document.getElementById('marketStatus').innerText = msg.text;
             if (msg.progress) document.getElementById('scanProgress').style.width = msg.progress + "%";
         }
-        if (msg.action === "regalScanStatus") document.getElementById('regalStatus').innerText = msg.text;
+        
+        
+        if (msg.action === "shelfScanStatus") {
+            document.getElementById('shelfStatus').innerText = msg.text;
+            
+            
+            if (msg.text.includes("Fertig")) {
+                setTimeout(refreshUI, 200); 
+            }
+        }
         
         if (msg.action === "bankerResults") {
             const list = document.getElementById('bankerList');
             list.innerHTML = "";
             if(!msg.data || msg.data.length === 0) {
-                list.innerHTML = '<div style="padding:10px; text-align:center;">Keine Daten. Zeiten eingelesen?</div>'; return;
+                list.innerHTML = '<div style="padding:10px; text-align:center;">Keine Daten. Hast du das Regal eingescannt?</div>'; return;
             }
             msg.data.sort((a, b) => b.profitPerHour - a.profitPerHour);
             msg.data.forEach(item => {

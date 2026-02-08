@@ -21,29 +21,13 @@ function updateData() {
     if (pkt && lvl && bar) {
         stats = { pkt: pkt.innerText, lvl: lvl.innerText, bar: bar.innerText };
     }
-
-    let slots = [];
-    for (let i = 1; i <= 100; i++) {
-        const elem = document.getElementById('regal_' + i);
-        if (elem && elem.style.display !== "none" && elem.innerHTML.includes('img')) {
-            slots.push(i);
-        }
-    }
-
-    let dataToSave = {};
-    if (stats) dataToSave.stats = stats;
-    if (slots.length > 0) dataToSave.regalSlots = slots;
-    if (Object.keys(dataToSave).length > 0) chrome.storage.local.set(dataToSave);
+    if (stats) chrome.storage.local.set({ stats: stats });
 }
 setInterval(updateData, 1000);
 updateData();
 
-
 chrome.storage.local.get(['learnedTimes'], (res) => {
-    if(res.learnedTimes) {
-     
-        PLANT_INFO = { ...PLANT_INFO, ...res.learnedTimes };
-    }
+    if(res.learnedTimes) PLANT_INFO = { ...PLANT_INFO, ...res.learnedTimes };
 });
 
 
@@ -54,17 +38,14 @@ function isTileValid(tile) {
     return true;
 }
 
-// --- VISUALS: NEON HIGHLIGHT ---
 function highlightSlot(slotId) {
-    for (let i = 1; i <= 100; i++) {
-        const old = document.getElementById('regal_' + i);
-        if (old) {
-            old.style.outline = "none";
-            old.style.boxShadow = "none";
-            old.style.zIndex = ""; 
-            old.style.position = ""; 
-        }
-    }
+    const allItems = document.querySelectorAll('.regalItem');
+    allItems.forEach(el => {
+        el.style.outline = "none";
+        el.style.boxShadow = "none";
+        el.style.zIndex = ""; 
+        el.style.position = ""; 
+    });
 
     const item = document.getElementById(slotId);
     if (item) {
@@ -77,103 +58,103 @@ function highlightSlot(slotId) {
     }
 }
 
-// --- FEATURES ---
 
-// 1. REGAL ZEITEN
-async function scanRegalTimes() {
-    const storage = await chrome.storage.local.get(['regalSlots']);
-    const knownSlots = storage.regalSlots || [];
-    
-    if (knownSlots.length === 0) {
-        chrome.runtime.sendMessage({ action: "regalScanStatus", text: "Fehler: Keine Slots gefunden." });
+
+
+async function scanShelf() {
+    const slots = document.querySelectorAll('#regal .regalItem');
+    if (slots.length === 0) {
+        chrome.runtime.sendMessage({ action: "shelfScanStatus", text: "Fehler: Regal nicht gefunden." });
         return;
     }
 
-    let learnedTimes = {};
+    let shelfData = []; 
     let foundCount = 0;
 
-    for (let i of knownSlots) {
-        const slot = document.getElementById('regal_' + i);
-        if (slot) {
-            slot.click();
-            await sleep(200);
+    for (let slot of slots) {
+        const slotIdFull = slot.id;
+        const slotIdNum = slotIdFull.replace('regal_', '');
+        
+        highlightSlot(slotIdFull);
+
+        slot.dispatchEvent(new MouseEvent('mousedown', {bubbles: true}));
+        slot.click();
+        slot.dispatchEvent(new MouseEvent('mouseup', {bubbles: true}));
+        
+        await sleep(300); 
+        
+        const nameEl = document.getElementById('lager_name');
+        const timeEl = document.getElementById('lager_zeit');
+        
+        if (nameEl && timeEl) {
+            const name = nameEl.innerText.trim();
+            const timeStr = timeEl.innerText.trim(); 
+            const cleanTime = timeStr.replace(' h', '').replace(/\./g, '').trim();
+            const parts = cleanTime.split(':');
             
-            const nameEl = document.getElementById('lager_name');
-            const timeEl = document.getElementById('lager_zeit');
-            
-            if (nameEl && timeEl) {
-                const name = nameEl.innerText.trim();
-                const timeStr = timeEl.innerText.trim(); 
-                const cleanTime = timeStr.replace(' h', '').trim();
-                const parts = cleanTime.split(':');
-                
-                if (parts.length === 3) {
-                    const totalMinutes = (parseInt(parts[0]) * 60) + parseInt(parts[1]) + (parseInt(parts[2]) / 60);
-                    if (name && totalMinutes > 0) {
-                        learnedTimes[name] = totalMinutes;
-                        foundCount++;
-                        chrome.runtime.sendMessage({ action: "regalScanStatus", text: `Lese: ${name}` });
-                    }
+            if (parts.length === 3) {
+                const totalMinutes = (parseInt(parts[0]) * 60) + parseInt(parts[1]) + (parseInt(parts[2]) / 60);
+                if (name) {
+                    shelfData.push({ id: slotIdNum, name: name, time: totalMinutes });
+                    foundCount++;
+                    chrome.runtime.sendMessage({ action: "shelfScanStatus", text: `Gelernt: ${name}` });
                 }
             }
         }
     }
 
+    const allItems = document.querySelectorAll('.regalItem');
+    allItems.forEach(el => { el.style.outline = "none"; el.style.boxShadow = "none"; });
+
     if (foundCount > 0) {
-        chrome.storage.local.set({ learnedTimes: learnedTimes });
-        PLANT_INFO = { ...PLANT_INFO, ...learnedTimes };
-        chrome.runtime.sendMessage({ action: "regalScanStatus", text: `Fertig! ${foundCount} Zeiten.` });
+        chrome.storage.local.set({ shelfData: shelfData });
+        let newTimes = {};
+        shelfData.forEach(item => newTimes[item.name] = item.time);
+        chrome.storage.local.set({ learnedTimes: newTimes });
+        PLANT_INFO = { ...PLANT_INFO, ...newTimes };
+        chrome.runtime.sendMessage({ action: "shelfScanStatus", text: `Fertig! ${foundCount} Pflanzen gespeichert.` });
     } else {
-        chrome.runtime.sendMessage({ action: "regalScanStatus", text: `Keine Zeiten lesbar.` });
+        chrome.runtime.sendMessage({ action: "shelfScanStatus", text: `Fehler: Konnte nichts lesen.` });
     }
 }
 
 
 async function calcBanker() {
-
-    const data = await chrome.storage.local.get(['marketPrices', 'learnedTimes']);
+    const data = await chrome.storage.local.get(['marketPrices', 'shelfData']);
     const prices = data.marketPrices || {};
-    const ownedItems = data.learnedTimes || {}; 
+    const shelfItems = data.shelfData || []; 
 
     let results = [];
-    
-
-    let itemsToCalculate = [];
-    
-    if (Object.keys(ownedItems).length > 0) {
-        itemsToCalculate = Object.keys(ownedItems); // NUR Eigentum
+    if (shelfItems.length > 0) {
+        shelfItems.forEach(item => {
+            const price = prices[item.name];
+            if (item.time > 0 && price > 0) {
+                const perHour = price * (60 / item.time);
+                let durText = Math.round(item.time) + " Min";
+                if (item.time >= 60) durText = (item.time/60).toFixed(1) + " Std";
+                if (!results.some(r => r.name === item.name)) {
+                    results.push({ name: item.name, durationText: durText, price: price, profitPerHour: perHour });
+                }
+            }
+        });
     } else {
-        itemsToCalculate = Object.keys(PLANT_INFO); // Alles (Fallback)
+        Object.keys(PLANT_INFO).forEach(name => {
+             const price = prices[name];
+             const duration = PLANT_INFO[name];
+             if(price && duration) {
+                 const perHour = price * (60 / duration);
+                 results.push({ name: name, durationText: Math.round(duration)+" Min", price: price, profitPerHour: perHour });
+             }
+        });
     }
-
-    itemsToCalculate.forEach(name => {
-
-        const duration = ownedItems[name] || PLANT_INFO[name];
-        const price = prices[name];
-
-        if (duration && price > 0) {
-            const perHour = price * (60 / duration);
-            let durText = Math.round(duration) + " Min";
-            if (duration >= 60) durText = (duration/60).toFixed(1) + " Std";
-            
-            results.push({ 
-                name: name, 
-                durationText: durText, 
-                price: price, 
-                profitPerHour: perHour 
-            });
-        }
-    });
-
     chrome.runtime.sendMessage({ action: "bankerResults", data: results });
 }
 
-// 3. MARKT
+
 async function deepScanMarket() {
     let prices = {};
     const parser = new DOMParser();
     const MAX_ID = 120; 
-
     for (let id = 1; id <= MAX_ID; id++) {
         let percent = Math.round((id / MAX_ID) * 100);
         chrome.runtime.sendMessage({ action: "marketStatus", text: `Scanne ID ${id}...`, progress: percent });
@@ -183,7 +164,6 @@ async function deepScanMarket() {
             const doc = parser.parseFromString(text, "text/html");
             const nameLink = doc.querySelector('a[title^="Nur "]');
             let productName = nameLink ? nameLink.innerText.trim() : "";
-            
             if (productName) {
                 let foundPrice = 0;
                 const rows = doc.querySelectorAll('tr');
@@ -215,11 +195,10 @@ async function deepScanMarket() {
     chrome.runtime.sendMessage({ action: "marketStatus", text: `Fertig!`, progress: 100 });
 }
 
-// 4. WIMP BOT
+
 async function runWimpBot(sellMode = false) {
     const wimpContainer = document.getElementById('wimpareaWimps');
     if (!wimpContainer) return; 
-
     const data = await chrome.storage.local.get(['marketPrices']);
     const marketPrices = data.marketPrices || {};
     const wimps = wimpContainer.querySelectorAll('.wimp'); 
@@ -228,7 +207,6 @@ async function runWimpBot(sellMode = false) {
         chrome.runtime.sendMessage({ action: "wimpAnalysisDone", results: [] });
         return;
     }
-
     let analysisResults = [];
     for (let i = 0; i < wimps.length; i++) {
         const wimp = document.getElementById('i' + i);
@@ -252,19 +230,16 @@ async function runWimpBot(sellMode = false) {
                 let marketUnit = marketPrices[name] || 0;
                 let percent = 0;
                 let isGoodDeal = false;
-
                 if (marketUnit > 0) {
                     percent = (wimpUnit / marketUnit) * 100;
                     if (percent >= 75) isGoodDeal = true;
                 }
                 analysisResults.push({ name: name, amount: amount, percent: percent, isGood: isGoodDeal, marketPrice: marketUnit });
-
                 const color = isGoodDeal ? '#2e7d32' : (marketUnit === 0 ? '#ef6c00' : '#d32f2f');
                 let infoText = marketUnit === 0 ? "Markt unbekannt" : `Markt: ${marketUnit.toFixed(2)} | ${percent.toFixed(0)}%`;
                 let oldInfo = productsDiv.querySelector('.tgs-info');
                 if(oldInfo) oldInfo.remove();
                 productsDiv.innerHTML += `<br><span class="tgs-info" style="font-weight:bold; font-size:10px; color:${color}">${infoText}</span>`;
-
                 if (sellMode && isGoodDeal && btnYes) {
                     btnYes.click(); await sleep(800);
                     const confirm = document.getElementById('baseDialogButton2'); if(confirm) confirm.click();
@@ -276,7 +251,7 @@ async function runWimpBot(sellMode = false) {
     chrome.runtime.sendMessage({ action: "wimpAnalysisDone", results: analysisResults });
 }
 
-// 5. GARTEN
+
 async function runAction(type, slotId = null) {
     if (slotId) {
         const item = document.getElementById(slotId);
@@ -292,18 +267,13 @@ async function runAction(type, slotId = null) {
         if (btn) btn.click();
         await sleep(300);
     }
-
     for (let i = 1; i <= 204; i++) {
         const tile = document.getElementById('gardenTile' + i);
-        
         if (!isTileValid(tile)) continue; 
-
         if (slotId && (tile.innerHTML.indexOf('vrow') !== -1 || tile.querySelector('.vrow'))) continue;
-        
         tile.dispatchEvent(new MouseEvent('mousedown', {bubbles: true}));
         tile.click();
         tile.dispatchEvent(new MouseEvent('mouseup', {bubbles: true}));
-        
         setTimeout(() => {
             const dialog = document.getElementById('baseDialogButton2');
             if (dialog && dialog.offsetParent !== null) dialog.click();
@@ -311,6 +281,83 @@ async function runAction(type, slotId = null) {
     }
     await sleep(500);
 }
+
+
+function injectBranding() {
+    
+    if (!document.getElementById('tgs-style')) {
+        const style = document.createElement('style');
+        style.id = 'tgs-style';
+        style.innerHTML = `
+            @keyframes tgs-rainbow {
+                0% { background-position: 0% 50%; }
+                50% { background-position: 100% 50%; }
+                100% { background-position: 0% 50%; }
+            }
+            .tgs-brand {
+                font-family: 'Verdana', sans-serif;
+                font-size: 10px;
+                font-weight: bold;
+                text-align: center;
+                margin-top: 5px;
+                padding: 4px;
+                border-radius: 4px;
+                color: #fff;
+                /* Regenbogen Hintergrund */
+                background: linear-gradient(270deg, #ff0000, #eeff00, #00ff00, #006eff, #ff00de, #ff0000);
+                background-size: 400% 400%;
+                animation: tgs-rainbow 8s ease infinite;
+                
+                text-shadow: 1px 1px 1px rgba(0,0,0,0.8);
+                box-shadow: 0 0 10px rgba(255,255,255,0.4);
+                cursor: default;
+                pointer-events: none; /* Klickt durch */
+                border: 1px solid rgba(255,255,255,0.5);
+            }
+            .tgs-brand-bar {
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                font-size: 12px;
+                padding: 2px 10px;
+            }
+        `;
+        document.head.appendChild(style);
+    }
+
+    
+    const userMenu = document.getElementById('menuUserdata');
+    if (userMenu && !document.getElementById('tgs-brand-top')) {
+        const brand = document.createElement('div');
+        brand.id = 'tgs-brand-top';
+        brand.className = 'tgs-brand';
+        brand.innerText = '✨ Bot by TGSTuts';
+        userMenu.appendChild(brand);
+        
+        userMenu.style.height = "auto";
+        userMenu.style.paddingBottom = "5px";
+    }
+
+    
+    const bottomBar = document.getElementById('rahmen_quer');
+    if (bottomBar && !document.getElementById('tgs-brand-bottom')) {
+        const brand = document.createElement('div');
+        brand.id = 'tgs-brand-bottom';
+        brand.className = 'tgs-brand tgs-brand-bar';
+        brand.innerText = '🚀 Besuche gerne meinen Youtube-Channel! 🚀';
+        bottomBar.appendChild(brand);
+        
+        if(getComputedStyle(bottomBar).position === 'static') {
+            bottomBar.style.position = 'relative';
+        }
+    }
+}
+
+setInterval(injectBranding, 2000);
+injectBranding();
+
+
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === "ernten") runAction('ernten');
@@ -321,5 +368,5 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === "calcBanker") calcBanker();
     if (request.action === "checkWimps") runWimpBot(false);
     if (request.action === "sellWimps") runWimpBot(true);
-    if (request.action === "scanRegalTimes") scanRegalTimes();
+    if (request.action === "scanShelf") scanShelf();
 });

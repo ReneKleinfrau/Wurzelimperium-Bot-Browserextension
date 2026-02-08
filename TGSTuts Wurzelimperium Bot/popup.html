@@ -20,31 +20,19 @@
     .btn { background: white; border: 1px solid #c8e6c9; padding: 10px; border-radius: 8px; cursor: pointer; font-weight: 600; width: 100%; margin-bottom: 8px; transition: 0.2s; }
     .btn:hover { background: #f1f8e9; border-color: #2e7d32; }
     
+    /* NEUER STYLE FÜR SCAN BUTTON */
+    .btn-scan {
+        background: #2196f3; /* Schönes Blau */
+        color: white;
+        border: none;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    }
+    .btn-scan:hover { background: #1976d2; }
+
     select { width: 100%; padding: 8px; border-radius: 8px; border: 2px solid #ddd; margin-top: 5px; background: white; }
     
-    /* FOOTER STYLE NEU */
-    footer { 
-        font-size: 11px; 
-        text-align: center; 
-        padding: 12px; 
-        color: #666; 
-        border-top: 1px solid #dcedc8; 
-        background: #f1f8e9; /* Leichtes Grün */
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        gap: 15px; /* Abstand zwischen den Links */
-    }
-    footer a { 
-        text-decoration: none; 
-        font-weight: bold; 
-        display: flex; 
-        align-items: center;
-        transition: 0.2s;
-    }
-    .link-yt { color: #d32f2f; }
-    .link-bmc { color: #795548; }
-    footer a:hover { transform: scale(1.05); opacity: 0.8; }
+    footer { font-size: 11px; text-align: center; padding: 12px; color: #666; border-top: 1px solid #dcedc8; background: #f1f8e9; display: flex; justify-content: center; gap: 15px; }
+    footer a { text-decoration: none; font-weight: bold; color: #d32f2f; }
     
     .scroll-list { max-height: 220px; overflow-y: auto; border: 1px solid #eee; border-radius: 5px; background: white; margin-top: 10px; font-size: 11px; }
     .list-item { padding: 6px 10px; border-bottom: 1px solid #f0f0f0; display: flex; justify-content: space-between; align-items: center; }
@@ -79,9 +67,16 @@
   <div id="tab-garten" class="content active">
     <button class="btn" id="btnErnten">Alles Ernten</button>
     <button class="btn" id="btnGiessen">Alles Gießen</button>
+    
     <div style="margin-top: 15px; border-top: 1px solid #eee; padding-top: 15px;">
         <label style="font-size: 12px; font-weight: bold;">Säen aus Regal:</label>
-        <select id="selSlot"><option>Warte auf Daten...</option></select>
+        
+        <button class="btn btn-scan" id="btnScanShelf" style="margin-bottom:5px; margin-top:5px;">
+            🔄 Regal einlesen
+        </button>
+        <div id="shelfStatus" style="font-size:10px; color:#1976d2; height:15px; text-align:center; margin-bottom:5px; font-weight:bold;"></div>
+
+        <select id="selSlot"><option>Bitte Regal einlesen!</option></select>
         <button class="btn" style="background:#2e7d32; color:white; margin-top:10px;" id="btnSaen">Säen starten</button>
     </div>
   </div>
@@ -102,12 +97,9 @@
   <div id="tab-banker" class="content needs-scan">
     <div class="scan-overlay">⚠️ Bitte erst Markt scannen!</div>
     <div class="scan-content">
-        <div style="background:#fff3e0; padding:5px; border-radius:5px; margin-bottom:10px; border:1px solid #ffe0b2; text-align:center;">
-            <div style="font-size:10px; font-weight:bold; color:#ef6c00;">Schritt 1: Zeiten lernen</div>
-            <button class="btn" id="btnScanRegalTimes" style="background:#fff8e1; margin-top:5px; border-color:#ffecb3;">⏱️ Regal-Zeiten einlesen</button>
-            <div id="regalStatus" style="font-size:10px; color:#2e7d32; height:15px;"></div>
-        </div>
-        <div style="font-size:10px; font-weight:bold; color:#2e7d32; text-align:center;">Schritt 2: Berechnen</div>
+        <p style="font-size:11px; color:#666; text-align:center;">
+            Tipp: Nutze "Regal einlesen" im ersten Tab, damit hier deine exakten Wachstumszeiten verwendet werden.
+        </p>
         <button class="btn" id="btnCalcBanker">📈 Rentabilität berechnen</button>
         <div id="bankerList" class="scroll-list"></div>
     </div>
@@ -123,12 +115,8 @@
   </div>
 
   <footer>
-      <a href="https://youtube.com/@TGSTuts" target="_blank" class="link-yt">
-        📺 TGSTuts bei YouTube
-      </a>
-      <a href="https://buymeacoffee.com/tgstuts" target="_blank" class="link-bmc">
-        ☕ Mich unterstützen
-      </a>
+      <a href="https://youtube.com/@TGSTuts" target="_blank" class="link-yt">📺 TGSTuts bei YouTube</a>
+      <a href="https://buymeacoffee.com/tgstuts" target="_blank" class="link-bmc">☕ Mich unterstützen</a>
   </footer>
   <script src="popup.js"></script>
 </body>
