@@ -7,6 +7,47 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     
+    
+    const renderMarketList = (marketPrices, shelfData) => {
+        const list = document.getElementById('marketList');
+        const searchTerm = document.getElementById('marketSearch').value.toLowerCase();
+        const onlyOwn = document.getElementById('filterOwn').checked;
+
+        
+        let ownedNames = [];
+        if (shelfData && shelfData.length > 0) {
+            ownedNames = shelfData.map(i => i.name);
+        }
+
+        let htmlContent = "";
+        let count = 0;
+
+        Object.keys(marketPrices).sort().forEach(name => {
+            
+            if (searchTerm && !name.toLowerCase().includes(searchTerm)) return;
+
+            
+            if (onlyOwn && !ownedNames.includes(name)) return;
+
+            const price = marketPrices[name];
+            let priceHtml = price <= 0 ? `<span class="tag tag-warn">Keine Angebote</span>` : `<span>${price.toFixed(2)} wT</span>`;
+            
+            
+            htmlContent += `
+                <div class="list-item">
+                    <span>${name}</span>
+                    ${priceHtml}
+                </div>`;
+            count++;
+        });
+
+        if (count === 0) {
+            list.innerHTML = '<div style="padding:10px; text-align:center; color:#999;">Keine Items gefunden.</div>';
+        } else {
+            list.innerHTML = htmlContent;
+        }
+    };
+
     const refreshUI = () => {
         chrome.storage.local.get(['stats', 'shelfData', 'marketPrices'], (res) => {
             
@@ -18,39 +59,28 @@ document.addEventListener('DOMContentLoaded', () => {
 
             
             const select = document.getElementById('selSlot');
-            
             if (res.shelfData && res.shelfData.length > 0) {
-                
-                
-                
-                
                 const currentCount = select.options.length;
                 const newCount = res.shelfData.length;
                 const hasPlaceholder = select.value.includes("Bitte") || select.value.includes("Warte") || select.value.includes("Lade");
 
                 if (hasPlaceholder || currentCount !== newCount) {
-                    
                     const oldValue = select.value; 
                     select.innerHTML = ""; 
-                    
                     res.shelfData.forEach(item => {
                         let opt = document.createElement('option');
                         opt.value = "regal_" + item.id;
                         opt.innerHTML = `${item.name} (Slot ${item.id})`;
                         select.appendChild(opt);
                     });
-
-                    
                     if (oldValue && !oldValue.includes("regal")) {
                         select.value = oldValue;
                     } else if (select.options.length > 0) {
                         select.selectedIndex = 0;
-                        
                         if (hasPlaceholder) sendAction("highlight", {slot: select.value});
                     }
                 }
             } else {
-                
                 if(!select.value.includes("Bitte")) {
                      select.innerHTML = "<option>Bitte Regal einlesen!</option>";
                 }
@@ -71,29 +101,40 @@ document.addEventListener('DOMContentLoaded', () => {
             });
 
             
+            
+            
             if (document.getElementById('tab-markt').classList.contains('active') && hasMarketData) {
+                
+                
+                
+                
+                
                 const list = document.getElementById('marketList');
-                if(list.children.length <= 1) {
-                    list.innerHTML = "";
-                    Object.keys(res.marketPrices).sort().forEach(name => {
-                        const price = res.marketPrices[name];
-                        const row = document.createElement('div');
-                        row.className = "list-item";
-                        let priceHtml = price <= 0 ? `<span class="tag tag-warn">Keine Angebote</span>` : `<span>${price.toFixed(2)} wT</span>`;
-                        row.innerHTML = `<span>${name}</span> ${priceHtml}`;
-                        list.appendChild(row);
-                    });
+                if (!list.dataset.rendered || list.children.length <= 1) {
+                    renderMarketList(res.marketPrices, res.shelfData);
+                    list.dataset.rendered = "true";
                 }
             }
         });
     };
 
-    
     setInterval(refreshUI, 1000);
     refreshUI();
 
     
     
+    document.getElementById('marketSearch').addEventListener('input', () => {
+        chrome.storage.local.get(['marketPrices', 'shelfData'], (res) => {
+            if(res.marketPrices) renderMarketList(res.marketPrices, res.shelfData);
+        });
+    });
+    
+    document.getElementById('filterOwn').addEventListener('change', () => {
+        chrome.storage.local.get(['marketPrices', 'shelfData'], (res) => {
+            if(res.marketPrices) renderMarketList(res.marketPrices, res.shelfData);
+        });
+    });
+
     
     const tabs = document.querySelectorAll('.tab');
     const contents = document.querySelectorAll('.content');
@@ -103,8 +144,14 @@ document.addEventListener('DOMContentLoaded', () => {
             contents.forEach(c => c.classList.remove('active'));
             tab.classList.add('active');
             document.getElementById(tab.dataset.target).classList.add('active');
-            if(tab.dataset.target === 'tab-markt') document.getElementById('marketList').innerHTML = ""; 
-            refreshUI();
+            
+            
+            if(tab.dataset.target === 'tab-markt') {
+                const list = document.getElementById('marketList');
+                list.dataset.rendered = ""; 
+                list.innerHTML = '<div style="padding:10px; text-align:center; color:#999;">Lade...</div>';
+                refreshUI(); 
+            }
         });
     });
 
@@ -118,20 +165,19 @@ document.addEventListener('DOMContentLoaded', () => {
     
     document.getElementById('selSlot').addEventListener('change', (e) => sendAction("highlight", {slot: e.target.value}));
 
-    
     document.getElementById('btnScanShelf').addEventListener('click', () => {
         document.getElementById('shelfStatus').innerText = "Initialisiere...";
-        
-        
-        
         document.getElementById('selSlot').innerHTML = "<option>Lade Daten...</option>";
-        
         sendAction("scanShelf");
     });
 
     document.getElementById('btnDeepScan').addEventListener('click', () => {
         document.getElementById('marketStatus').innerText = "Starte Komplett-Scan...";
         document.getElementById('scanProgress').style.width = "0%";
+        
+        
+        document.getElementById('marketList').dataset.rendered = "";
+        
         sendAction("deepScanMarket");
     });
     
@@ -153,13 +199,16 @@ document.addEventListener('DOMContentLoaded', () => {
         if (msg.action === "marketStatus") {
             document.getElementById('marketStatus').innerText = msg.text;
             if (msg.progress) document.getElementById('scanProgress').style.width = msg.progress + "%";
+            
+            
+            
+             chrome.storage.local.get(['marketPrices', 'shelfData'], (res) => {
+                if(res.marketPrices) renderMarketList(res.marketPrices, res.shelfData);
+            });
         }
-        
         
         if (msg.action === "shelfScanStatus") {
             document.getElementById('shelfStatus').innerText = msg.text;
-            
-            
             if (msg.text.includes("Fertig")) {
                 setTimeout(refreshUI, 200); 
             }

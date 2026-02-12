@@ -20,9 +20,8 @@
     .btn { background: white; border: 1px solid #c8e6c9; padding: 10px; border-radius: 8px; cursor: pointer; font-weight: 600; width: 100%; margin-bottom: 8px; transition: 0.2s; }
     .btn:hover { background: #f1f8e9; border-color: #2e7d32; }
     
-    /* NEUER STYLE FÜR SCAN BUTTON */
     .btn-scan {
-        background: #2196f3; /* Schönes Blau */
+        background: #2196f3; 
         color: white;
         border: none;
         box-shadow: 0 2px 5px rgba(0,0,0,0.2);
@@ -30,6 +29,32 @@
     .btn-scan:hover { background: #1976d2; }
 
     select { width: 100%; padding: 8px; border-radius: 8px; border: 2px solid #ddd; margin-top: 5px; background: white; }
+    
+    /* NEU: Styles für Markt-Filter */
+    .market-controls {
+        background: white;
+        padding: 10px;
+        border-radius: 8px;
+        border: 1px solid #ddd;
+        margin-bottom: 10px;
+    }
+    .search-input {
+        width: 93%; /* Leichter Padding-Abzug */
+        padding: 8px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        margin-bottom: 8px;
+        font-family: 'Segoe UI', sans-serif;
+    }
+    .toggle-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 12px;
+        font-weight: bold;
+        color: #555;
+        cursor: pointer;
+    }
     
     footer { font-size: 11px; text-align: center; padding: 12px; color: #666; border-top: 1px solid #dcedc8; background: #f1f8e9; display: flex; justify-content: center; gap: 15px; }
     footer a { text-decoration: none; font-weight: bold; color: #d32f2f; }
@@ -89,6 +114,15 @@
             <div id="scanProgress" style="width:0%; background:#2196f3; height:100%; transition:width 0.2s;"></div>
         </div>
     </div>
+
+    <div class="market-controls">
+        <input type="text" id="marketSearch" class="search-input" placeholder="🔍 Item suchen (z.B. Karotte)...">
+        <label class="toggle-row">
+            <input type="checkbox" id="filterOwn"> 
+            <span>Nur eigene Items anzeigen</span>
+        </label>
+    </div>
+
     <div id="marketList" class="scroll-list">
         <div style="padding:10px; text-align:center; color:#999;">Bitte erst scannen!</div>
     </div>
